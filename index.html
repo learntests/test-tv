@@ -1,60 +1,980 @@
-Sure, here it is again. Copy the whole block and paste it into the big box on GitHub.
-
-```html
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Test TV</title><script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
-<style>
-body{margin:0;background:#141414;color:#fff;font-family:Arial,sans-serif}
-header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:14px 24px;position:sticky;top:0;background:#141414;z-index:5}
-h1{margin:0;color:#e50914;font-size:28px}
-input{flex:1;min-width:180px;padding:9px;border-radius:4px;border:0;font-size:15px}
-.bar{display:flex;gap:8px;overflow-x:auto;padding:4px 24px 10px}
-.bar button{white-space:nowrap;background:#333;color:#fff;border:0;border-radius:16px;padding:7px 14px;cursor:pointer}
-.bar button.on{background:#e50914}
-#info{padding:0 24px;color:#aaa;font-size:13px}
-.row{padding:0 24px 18px}.row h2{font-size:18px;margin:8px 0}
-.strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:8px}
-.card{flex:0 0 160px;height:100px;background:#222;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:transform .2s;text-align:center;font-size:12px;padding:6px;box-sizing:border-box}
-.card:hover{transform:scale(1.08);background:#333}.card img{max-width:110px;max-height:55px;margin-bottom:6px}
-#player{display:none;position:fixed;inset:0;background:#000e;align-items:center;justify-content:center;flex-direction:column;z-index:10}
-video{width:90%;max-width:900px;background:#000}
-#msg{margin-top:10px;color:#ccc;font-size:14px;text-align:center}#msg a{color:#4ea3ff}
-#close{margin-top:12px;padding:8px 20px;background:#e50914;color:#fff;border:0;border-radius:4px;font-size:16px;cursor:pointer}
-</style></head><body>
-<header><h1>Test TV</h1><input id="q" placeholder="Search channels..."></header>
-<div class="bar" id="countries"></div><div class="bar" id="cats"></div><div id="info">Loading channels...</div><div id="rows"></div>
-<div id="player"><video id="v" controls autoplay playsinline></video><div id="msg"></div><button id="close">Close</button></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <script>
-const C={"All":null,"USA":"us","Canada":"ca","Iran":"ir"},BASE="https://iptv-org.github.io/iptv/countries/";
-let all=[],country="All",cat="All",hls;
-function parse(t,cn){const L=t.split("\n"),out=[];for(let i=0;i<L.length;i++){if(L[i].startsWith("#EXTINF")){
- let j=i+1;while(j<L.length&&(L[j].startsWith("#")||!L[j].trim()))j++;
- out.push({name:L[i].split(",").pop().trim(),logo:(L[i].match(/tvg-logo="([^"]*)"/)||[])[1]||"",
- cat:((L[i].match(/group-title="([^"]*)"/)||[])[1]||"Other").split(";")[0]||"Other",url:(L[j]||"").trim(),country:cn});}}return out;}
-async function load(){all=[];for(const [n,code] of Object.entries(C)){if(!code)continue;
- try{const r=await fetch(BASE+code+".m3u?d="+new Date().toDateString());all=all.concat(parse(await r.text(),n));}catch(e){}}
- document.getElementById("info").textContent=all.length+" channels loaded · updated "+new Date().toLocaleString();buildBars();render();}
-function buildBars(){const cb=document.getElementById("countries");cb.innerHTML="";
- Object.keys(C).forEach(n=>{const b=document.createElement("button");b.textContent=n;b.className=n==country?"on":"";b.onclick=()=>{country=n;cat="All";buildBars();render();};cb.appendChild(b);});
- const list=all.filter(c=>country=="All"||c.country==country),cats=["All",...new Set(list.map(c=>c.cat))].sort((a,b)=>a=="All"?-1:b=="All"?1:a.localeCompare(b));
- const kb=document.getElementById("cats");kb.innerHTML="";cats.forEach(n=>{const b=document.createElement("button");b.textContent=n;b.className=n==cat?"on":"";b.onclick=()=>{cat=n;buildBars();render();};kb.appendChild(b);});}
-function render(){const q=document.getElementById("q").value.toLowerCase(),R=document.getElementById("rows");R.innerHTML="";
- const list=all.filter(c=>(country=="All"||c.country==country)&&(cat=="All"||c.cat==cat)&&c.name.toLowerCase().includes(q)),g={};
- list.forEach(c=>{const k=country=="All"?c.country+" · "+c.cat:c.cat;(g[k]=g[k]||[]).push(c);});
- Object.keys(g).sort().forEach(k=>{const row=document.createElement("div");row.className="row";row.innerHTML="<h2>"+k+" ("+g[k].length+")</h2>";
-  const s=document.createElement("div");s.className="strip";g[k].forEach(ch=>{const d=document.createElement("div");d.className="card";
-  d.innerHTML=(ch.logo?'<img loading="lazy" src="'+ch.logo+'" onerror="this.remove()">':"")+ch.name;d.onclick=()=>play(ch);s.appendChild(d);});
-  row.appendChild(s);R.appendChild(row);});
- if(!list.length)R.innerHTML='<p style="padding:24px">No channels found.</p>';}
-function play(ch){const v=document.getElementById("v"),m=document.getElementById("msg");document.getElementById("player").style.display="flex";
- m.innerHTML="Loading "+ch.name+"...";if(hls){hls.destroy();hls=null;}
- const fail=()=>{m.innerHTML="This channel won't play here (offline or blocked). <a href='"+ch.url+"' target='_blank'>Open stream directly</a>";};
- if(v.canPlayType("application/vnd.apple.mpegurl")){v.src=ch.url;v.onerror=fail;v.play().then(()=>m.textContent=ch.name).catch(()=>{});}
- else if(window.Hls&&Hls.isSupported()){hls=new Hls();hls.loadSource(ch.url);hls.attachMedia(v);
-  hls.on(Hls.Events.MANIFEST_PARSED,()=>{v.play();m.textContent=ch.name;});hls.on(Hls.Events.ERROR,(e,d)=>{if(d.fatal)fail();});}
- else fail();}
-document.getElementById("close").onclick=()=>{const v=document.getElementById("v");v.pause();v.removeAttribute("src");v.load();if(hls){hls.destroy();hls=null;}document.getElementById("player").style.display="none";};
-document.getElementById("q").oninput=render;
-load();setInterval(load,24*60*60*1000);
-</script></body></html>
-```
+/* ======================= SETTINGS — edit these ======================= */
+
+// Password for the lock screen. Change it here. Set to "" to turn the lock off.
+// Note: this only keeps casual visitors out. Anyone who views the page source can see it.
+const PASSWORD = "changeme";
+
+// Optional TV guide (EPG) sources in XMLTV format (.xml or .xml.gz).
+// Guide links the iptv-org playlists advertise are also used automatically,
+// and you can add one in Settings (⚙) inside the app.
+const EPG_URLS = [
+  // "https://example.com/guide.xml",
+];
+
+// Countries to load from iptv-org (name shown in the app : iptv-org country code).
+const COUNTRIES = { "USA": "us", "Canada": "ca", "Iran": "ir" };
+
+// A channel that fails to play is hidden, then retried after this many days.
+const BROKEN_RETRY_DAYS = 3;
+
+/* ===================================================================== */
+</script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Test TV">
+<title>Test TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" defer></script>
+<style>
+:root{--bg:#0b0d12;--bg2:#141821;--card:#1b2030;--line:#262c3d;--txt:#f3f5fa;--mut:#9aa3b8;--acc:#ff8a3d;--acc2:#ff4f6d;
+ --grad:linear-gradient(135deg,var(--acc),var(--acc2));--r:12px;--pad:24px;
+ --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;padding-left:var(--sl);padding-right:var(--sr)}
+body.noscroll{overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+input,select{font:inherit;font-size:16px;color:var(--txt)}
+a{color:var(--acc)}
+.hidden{display:none!important}
+.mut{color:var(--mut)}.sm{font-size:13px}
+h2,h3,h4{margin:0}
+
+/* buttons, switches */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:999px;font-weight:600;background:#ffffff1c;transition:background .15s,transform .1s;white-space:nowrap}
+.btn:hover{background:#ffffff2e}.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--grad);color:#fff}.btn.light{background:#fff;color:#111}.btn.light:hover{background:#e9ecf3}
+.icon-btn{width:40px;height:40px;flex:0 0 40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#ffffff12;font-size:18px}
+.icon-btn:hover{background:#ffffff24}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;-webkit-user-select:none}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch span{width:38px;height:22px;flex:0 0 38px;border-radius:11px;background:#ffffff2a;position:relative;transition:background .2s}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch input:checked+span{background:var(--acc)}.switch input:checked+span::after{transform:translateX(16px)}
+.switch input:focus-visible+span{outline:2px solid var(--acc);outline-offset:2px}
+
+/* lock screen */
+#lock{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;
+ background:radial-gradient(900px 500px at 15% 0%,#ff8a3d30,transparent),radial-gradient(800px 500px at 100% 100%,#ff4f6d2a,transparent),var(--bg)}
+#lock form{width:100%;max-width:360px;background:#141821d9;border:1px solid var(--line);border-radius:22px;padding:30px 26px;text-align:center;box-shadow:0 30px 80px #0008}
+#lock .brand{font-size:30px}
+#lock p{margin:8px 0 0}
+#lock input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);margin:20px 0 12px;text-align:center;outline:none}
+#lock input:focus{border-color:var(--acc)}
+#lock .btn{width:100%;padding:14px}
+#lockErr{color:var(--acc2);min-height:20px;margin-top:10px;font-size:14px}
+.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+
+/* header */
+.brand{font-weight:800;font-size:24px;letter-spacing:-.5px;white-space:nowrap}
+.brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;margin-left:3px}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:18px;padding:calc(12px + var(--st)) var(--pad) 12px;background:#0b0d12f2;border-bottom:1px solid #ffffff0a}
+#tabs{display:flex;gap:4px}
+#tabs button{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;color:var(--mut);font-weight:600}
+#tabs button:hover{color:var(--txt)}
+#tabs button.on{color:var(--txt);background:#ffffff16}
+#tabs svg{width:18px;height:18px}
+.search{flex:1;max-width:380px;margin-left:auto;position:relative}
+.search input{width:100%;padding:9px 14px 9px 38px;border-radius:999px;border:1px solid var(--line);background:var(--bg2);outline:none;-webkit-appearance:none;appearance:none}
+.search input:focus{border-color:var(--acc)}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;opacity:.6;pointer-events:none}
+
+/* filters */
+.filters{padding:10px 0 4px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px var(--pad) 8px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:7px 14px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--mut);font-size:14px;font-weight:500}
+.chip:hover{color:var(--txt)}
+.chip.on{background:var(--txt);color:#111;border-color:var(--txt)}
+.tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:2px var(--pad) 10px;font-size:14px;color:var(--mut)}
+.tools label{display:inline-flex;align-items:center;gap:8px}
+.tools select{background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:14px}
+#info{margin-left:auto;font-size:13px}
+
+/* hero */
+.hero{position:relative;margin:6px var(--pad) 22px;border-radius:24px;overflow:hidden;min-height:360px;display:flex;align-items:flex-end;isolation:isolate;border:1px solid #ffffff12;animation:fade .5s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.hero-bg{position:absolute;inset:0;z-index:-2;background:radial-gradient(circle at 76% 45%,hsl(var(--h) 75% 50% / .5),transparent 55%),linear-gradient(115deg,#0b0d12 25%,hsl(var(--h) 45% 16%))}
+.hero-bg::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,#ffffff05 0 1px,transparent 1px 4px)}
+.hero-art{position:absolute;right:7%;top:50%;transform:translateY(-50%);width:min(34%,300px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;z-index:-1}
+.hero-art img{max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 20px 40px #000a)}
+.hero-art .ini{font-size:110px}
+.hero-in{padding:40px;max-width:620px}
+.eyebrow{display:inline-flex;gap:8px;align-items:center;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--acc2);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #ff4f6daa}70%{box-shadow:0 0 0 8px #ff4f6d00}100%{box-shadow:0 0 0 0 #ff4f6d00}}
+.hero h2{font-size:clamp(30px,5vw,54px);line-height:1.04;margin:10px 0;letter-spacing:-1.2px}
+.hero p{color:#c9cfdc;margin:0 0 20px;max-width:520px}
+.hero .btns{display:flex;gap:10px;flex-wrap:wrap}
+.dots{position:absolute;right:22px;bottom:20px;display:flex;gap:6px}
+.dots button{width:8px;height:8px;border-radius:4px;background:#ffffff55;transition:width .3s,background .3s}
+.dots button.on{width:22px;background:#fff}
+
+/* rows and cards */
+.row{padding:0 0 18px;content-visibility:auto;contain-intrinsic-size:auto 210px}
+.row h3{font-size:19px;margin:4px var(--pad) 10px;display:flex;align-items:baseline;gap:8px;letter-spacing:-.2px}
+.row h3 small{color:var(--mut);font-weight:500;font-size:13px}
+.row .hint{margin:0 var(--pad);color:var(--mut);font-size:14px}
+.strip-wrap{position:relative}
+.strip{display:flex;gap:14px;overflow-x:auto;padding:6px var(--pad) 10px;scroll-snap-type:x proximity;scroll-padding:0 var(--pad);scrollbar-width:none;overscroll-behavior-x:contain}
+.strip::-webkit-scrollbar{display:none}
+.card{flex:0 0 210px;scroll-snap-align:start;cursor:pointer;position:relative;outline:none;min-width:0}
+.thumb{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;display:flex;align-items:center;justify-content:center;
+ background:radial-gradient(circle at 30% 15%,hsl(var(--h) 55% 34%),hsl(var(--h) 40% 13%) 75%);box-shadow:inset 0 0 0 1px #ffffff14;transition:transform .2s,box-shadow .2s}
+.thumb img{position:absolute;left:20%;top:16%;width:60%;height:68%;object-fit:contain;filter:drop-shadow(0 4px 10px #0007)}
+.ini{font-weight:800;font-size:30px;color:#ffffffd9;letter-spacing:1px}
+.has-img>.ini{display:none}
+.card .nm{font-size:14px;font-weight:600;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .sub{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card:focus-visible .thumb{box-shadow:0 0 0 3px var(--acc)}
+.star{position:absolute;top:6px;right:6px;width:34px;height:34px;border-radius:50%;background:#000000a0;color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,transform .15s}
+.star.on{color:#ffc53d;opacity:1}
+.star:active{transform:scale(.85)}
+.rm{position:absolute;top:6px;left:6px;width:28px;height:28px;border-radius:50%;background:#000000a0;font-size:13px;display:flex;align-items:center;justify-content:center;opacity:0}
+.prog{position:absolute;left:0;bottom:0;height:3px;background:var(--grad)}
+.badge{position:absolute;left:8px;bottom:8px;font-size:10px;font-weight:800;padding:3px 7px;border-radius:5px;background:#000c;color:#ffb3b3;letter-spacing:.04em;text-transform:uppercase}
+.scroll-btn{position:absolute;top:6px;bottom:10px;width:var(--pad);z-index:2;display:none;align-items:center;justify-content:center;font-size:30px;background:#0b0d12c0}
+.scroll-btn.l{left:0}.scroll-btn.r{right:0}
+@media (hover:hover){
+ .card:hover .thumb{transform:translateY(-4px) scale(1.03);box-shadow:0 14px 30px #000a,inset 0 0 0 2px var(--acc)}
+ .card:hover .star,.card:hover .rm{opacity:1}
+ .strip-wrap:hover .scroll-btn{display:flex}
+}
+@media (hover:none){.star,.rm{opacity:1}}
+.empty{padding:30px var(--pad);color:var(--mut)}
+
+/* guide */
+.g-head{padding:8px var(--pad) 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between}
+.g-head h2{font-size:26px;letter-spacing:-.5px}
+.notice{margin:0 var(--pad) 14px;padding:14px 16px;border:1px solid var(--line);background:var(--bg2);border-radius:14px;color:var(--mut);font-size:14px}
+.g-list{margin:0 var(--pad) 20px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#10131b}
+.g-row{display:grid;grid-template-columns:minmax(200px,1.1fr) 1.4fr 1fr 40px;align-items:center;gap:16px;padding:10px 14px;border-top:1px solid var(--line);cursor:pointer;content-visibility:auto;contain-intrinsic-size:auto 72px}
+.g-row:first-child{border-top:0}
+.g-row:hover{background:#ffffff07}
+.g-ch{display:flex;align-items:center;gap:12px;min-width:0}
+.g-ch .thumb{width:76px;flex:0 0 76px;border-radius:8px}
+.g-ch .ini{font-size:16px}
+.g-nm{min-width:0}.g-nm .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-slot{min-width:0}
+.g-slot .lbl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.g-slot.now .lbl{color:var(--acc)}
+.g-slot .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.g-slot .tm{font-size:12px;color:var(--mut)}
+.bar{height:3px;background:#ffffff1c;border-radius:2px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--grad)}
+.star.static{position:static;opacity:1;background:none;font-size:20px;color:var(--mut)}
+.star.static.on{color:#ffc53d}
+.more{text-align:center;padding:0 0 24px}
+
+/* multiview */
+.mv-head{padding:16px var(--pad) 14px;display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;justify-content:space-between}
+.mv-head h2{font-size:26px;letter-spacing:-.5px}
+.mv-head p{margin:4px 0 0}
+.mv-grid{display:grid;gap:10px;padding:0 var(--pad) 24px;grid-template-columns:1fr 1fr}
+.mv-grid.n1{grid-template-columns:minmax(0,560px);justify-content:center}
+.slot{position:relative;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;border:2px solid #ffffff10;min-width:0}
+.slot.audio{border-color:var(--acc)}
+.slot video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+.slot-bar{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;padding:8px;background:linear-gradient(#000d,transparent)}
+.slot-bar .nm{flex:1;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px}
+.slot-bar button{width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:#ffffff2a;display:flex;align-items:center;justify-content:center;font-size:15px}
+.slot-msg{position:absolute;left:0;right:0;bottom:0;padding:10px;font-size:13px;color:#ddd;text-align:center}
+.slot-msg:empty{display:none}
+.slot.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:2px dashed var(--line);background:var(--bg2);color:var(--mut);font-weight:600}
+.slot.empty b{font-size:34px;font-weight:300;color:var(--txt);line-height:1}
+.slot.empty:hover{border-color:var(--acc);color:var(--txt)}
+
+/* modals */
+.modal{position:fixed;inset:0;z-index:50;background:#000000d0;display:flex;align-items:center;justify-content:center;padding:calc(16px + var(--st)) 16px calc(16px + var(--sb))}
+.sheet{width:100%;max-width:980px;max-height:100%;overflow:auto;background:var(--bg2);border:1px solid var(--line);border-radius:20px;-webkit-overflow-scrolling:touch}
+.sheet.small{max-width:520px}
+.sh-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg2);z-index:1}
+.sh-head h3{font-size:18px}
+.sh-body{padding:6px 18px 20px}
+.sh-body h4{margin:18px 0 6px;font-size:15px}
+.sh-body p{margin:0 0 10px}
+.field{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);outline:none;margin-bottom:10px}
+.field:focus{border-color:var(--acc)}
+#player .sheet{background:#06070b}
+.pl-top{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.pl-top .thumb{width:70px;flex:0 0 70px;border-radius:8px}.pl-top .ini{font-size:16px}
+.pl-tt{flex:1;min-width:0}.pl-tt h3{font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#v{width:100%;aspect-ratio:16/9;background:#000;display:block;max-height:70vh}
+#msg{padding:10px 16px 0;color:var(--mut);font-size:14px}
+#msg:empty{display:none}
+.pl-epg{padding:10px 16px 0;display:grid;gap:10px}
+.pl-epg:empty{display:none}
+.pl-epg .t{white-space:normal}
+.pl-btns{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px 18px}
+#pkList{display:grid;gap:4px;padding:8px}
+.pk-item{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;text-align:left;width:100%}
+.pk-item:hover{background:#ffffff0d}
+.pk-item .thumb{width:72px;flex:0 0 72px;border-radius:8px}.pk-item .ini{font-size:15px}
+.pk-item span{min-width:0;display:flex;flex-direction:column}
+.pk-item b,.pk-item small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk-item small{color:var(--mut)}
+
+#toast{position:fixed;left:16px;right:16px;margin:0 auto;width:fit-content;bottom:calc(24px + var(--sb));transform:translateY(20px);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:80;
+ background:#fff;color:#111;padding:10px 12px 10px 18px;border-radius:999px;display:flex;gap:12px;align-items:center;font-weight:600;font-size:14px;box-shadow:0 10px 30px #0009;max-width:520px}
+#toast.show{opacity:1;transform:none;pointer-events:auto}
+#toast:not(:has(button)){padding-right:18px}
+#toast button{background:#111;color:#fff;border-radius:999px;padding:6px 14px}
+
+/* phones */
+@media (max-width:760px){
+ :root{--pad:16px}
+ header{gap:10px;padding:calc(8px + var(--st)) var(--pad) 8px}
+ .brand{font-size:21px}
+ .search{max-width:none}
+ #tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;justify-content:space-around;gap:0;padding:6px calc(8px + var(--sr)) calc(6px + var(--sb)) calc(8px + var(--sl));background:#0b0d12f5;border-top:1px solid var(--line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+ #tabs button{flex:1;flex-direction:column;gap:3px;font-size:11px;padding:6px 4px;border-radius:12px}
+ #tabs button.on{background:none;color:var(--acc)}
+ #tabs svg{width:22px;height:22px}
+ main{padding-bottom:calc(76px + var(--sb))}
+ #toast{bottom:calc(84px + var(--sb))}
+ .tools{gap:10px 14px}.tools select{font-size:16px}
+ #info{margin-left:0;width:100%}
+ .hero{margin:4px var(--pad) 18px;min-height:0;flex-direction:column;align-items:stretch;border-radius:20px}
+ .hero-art{position:static;transform:none;width:auto;height:140px;margin:26px auto 0}
+ .hero-art .ini{font-size:72px}
+ .hero-in{padding:14px 20px 22px}
+ .hero h2{margin:8px 0}
+ .hero p{font-size:14px;margin-bottom:16px}
+ .hero .btns .btn{flex:1;padding:11px 10px}
+ .dots{top:14px;bottom:auto;right:16px}
+ .card{flex-basis:152px}
+ .strip{gap:10px}
+ .row h3{font-size:17px}
+ .ini{font-size:24px}
+ .g-row{grid-template-columns:1fr 36px;gap:6px 10px;padding:12px}
+ .g-row .star{grid-column:2;grid-row:1}
+ .g-slot{grid-column:1/-1}
+ .g-slot.next{display:flex;gap:8px;align-items:baseline}
+ .g-slot.next .tm{order:-1}
+ .g-ch .thumb{width:64px;flex-basis:64px}
+ .mv-grid{gap:6px}
+ .slot{border-radius:10px}
+ .slot-bar{padding:5px;gap:4px}
+ .slot-bar .nm{font-size:12px}
+ .slot-bar button{width:28px;height:28px;flex-basis:28px;font-size:13px}
+ .slot-msg{font-size:12px;padding:6px}
+ #player{padding:0;align-items:stretch}
+ #player .sheet{border-radius:0;border:0;max-height:none;height:100%;padding-top:var(--st);padding-bottom:var(--sb)}
+ #player #v{max-height:none}
+ .pl-btns .btn{flex:1 1 auto}
+ .modal:not(#player){align-items:flex-end;padding:calc(40px + var(--st)) 0 0}
+ .modal:not(#player) .sheet{border-radius:20px 20px 0 0;max-height:100%;padding-bottom:var(--sb)}
+}
+@media (max-width:760px) and (orientation:portrait){.mv-grid.n2{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<noscript><p style="padding:24px">Test TV needs JavaScript turned on.</p></noscript>
+
+<div id="lock" class="hidden">
+ <form id="lockForm" autocomplete="off">
+  <div class="brand">Test<b>TV</b></div>
+  <p class="mut">Enter the password to continue</p>
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password" enterkeyhint="go" aria-label="Password">
+  <button class="btn pri" type="submit">Unlock</button>
+  <div id="lockErr" role="alert"></div>
+ </form>
+</div>
+
+<div id="app" class="hidden">
+ <header>
+  <div class="brand">Test<b>TV</b></div>
+  <nav id="tabs">
+   <button data-view="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+   <button data-view="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v16"/></svg>Guide</button>
+   <button data-view="mv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>Multiview</button>
+  </nav>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+   <input id="q" type="search" placeholder="Search channels..." autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Search channels"></div>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙</button>
+ </header>
+
+ <main>
+  <div id="filters" class="filters">
+   <div class="chips" id="countries"></div>
+   <div class="chips" id="cats"></div>
+   <div class="tools">
+    <label>Sort
+     <select id="sort">
+      <option value="default">Playlist order</option>
+      <option value="az">Name A–Z</option>
+      <option value="za">Name Z–A</option>
+      <option value="popular">Most watched</option>
+      <option value="recent">Recently watched</option>
+      <option value="onnow">Has guide info first</option>
+     </select>
+    </label>
+    <label class="switch"><input type="checkbox" id="hideBroken"><span></span>Hide channels that don't work</label>
+    <span id="info">Loading channels...</span>
+   </div>
+  </div>
+  <div id="home"></div>
+  <div id="guide" class="hidden"></div>
+  <div id="mvView" class="hidden">
+   <div class="mv-head">
+    <div><h2>Multiview</h2><p class="mut sm">Watch up to 4 channels at once. Tap a screen (or 🔈) to choose which one you hear.</p></div>
+    <button class="btn" id="mvClear">Clear all</button>
+   </div>
+   <div id="mvGrid" class="mv-grid"></div>
+  </div>
+ </main>
+</div>
+
+<div id="player" class="modal hidden" role="dialog" aria-modal="true" aria-label="Player">
+ <div class="sheet">
+  <div class="pl-top"><div id="plHead" style="display:contents"></div><button class="icon-btn" id="close" aria-label="Close">✕</button></div>
+  <video id="v" controls autoplay playsinline></video>
+  <div id="msg"></div>
+  <div class="pl-epg" id="plEpg"></div>
+  <div class="pl-btns">
+   <button class="btn" data-act="fav" id="plFav">☆ Favorite</button>
+   <button class="btn" data-act="mvadd">⊞ Add to Multiview</button>
+   <button class="btn" data-act="hide">⊘ Doesn't work — hide it</button>
+  </div>
+ </div>
+</div>
+
+<div id="picker" class="modal hidden" role="dialog" aria-modal="true" aria-label="Add a channel">
+ <div class="sheet small">
+  <div class="sh-head"><h3>Add a channel</h3><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+  <div style="padding:12px 16px 0"><input id="pkQ" class="field" type="search" placeholder="Search channels..." autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Search channels"></div>
+  <div id="pkList"></div>
+ </div>
+</div>
+
+<div id="settings" class="modal hidden" role="dialog" aria-modal="true" aria-label="Settings">
+ <div class="sheet small">
+  <div class="sh-head"><h3>Settings</h3><button class="icon-btn" data-close aria-label="Close">✕</button></div>
+  <div class="sh-body">
+   <h4>TV guide</h4>
+   <p class="mut sm">Paste a link to an XMLTV guide file (.xml or .xml.gz). The iptv-org playlists don't carry program info themselves; you can make a guide file with the iptv-org EPG tool and host it anywhere that allows cross-site requests (GitHub Pages works).</p>
+   <input id="epgUrl" class="field" type="url" placeholder="https://.../guide.xml" autocomplete="off" autocapitalize="off" spellcheck="false">
+   <button class="btn pri" id="epgSave">Save and load guide</button>
+   <p id="epgStatus" class="mut sm" style="margin-top:10px"></p>
+   <h4>Channels that don't work</h4>
+   <p id="brokenInfo" class="mut sm"></p>
+   <button class="btn" id="brokenReset">Give them all another try</button>
+   <h4>Continue watching</h4>
+   <button class="btn" id="recentClear">Clear watch history</button>
+   <h4>Access</h4>
+   <button class="btn" id="lockBtn">Lock Test TV on this device</button>
+  </div>
+ </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const BASE = "https://iptv-org.github.io/iptv/countries/";
+const RETRY_MS = BROKEN_RETRY_DAYS * 864e5;
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const coll = new Intl.Collator(undefined, {sensitivity: "base", numeric: true});
+const isTouch = matchMedia("(hover:none)").matches;
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("tv_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { if (v == null) localStorage.removeItem("tv_" + k); else localStorage.setItem("tv_" + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+const S = {
+  all: [], byKey: new Map(), country: "All", cat: "All", q: "", view: "home",
+  sort: store.get("sort", "default"), hideBroken: store.get("hideBroken", true),
+  favs: new Set(store.get("favs", [])), recent: store.get("recent", []), plays: store.get("plays", {}),
+  broken: store.get("broken", {}), mv: store.get("mv", []), mvAudio: store.get("mvAudio", null),
+  epg: new Map(), epgState: "idle", epgMsg: "", hdrEpg: new Set(),
+  heroPool: [], heroI: 0, loadedAt: null, guideAll: false, guideLimit: 300, dirty: false
+};
+const saveFavs = () => store.set("favs", [...S.favs]);
+const saveRecent = () => store.set("recent", S.recent);
+const saveBroken = () => store.set("broken", S.broken);
+const saveMV = () => { store.set("mv", S.mv); store.set("mvAudio", S.mvAudio); };
+
+/* ---------- small helpers ---------- */
+function hash(s) { let h = 5381; for (const c of s) h = ((h * 33) ^ c.codePointAt(0)) >>> 0; return h.toString(36); }
+function hue(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+function initials(n) {
+  const w = n.replace(/\(.*?\)|\[.*?\]/g, "").trim().split(/\s+/).filter(Boolean);
+  return (((w[0] || "?")[0] || "") + ((w[1] || "")[0] || "")).toUpperCase();
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const fmtT = ts => new Date(ts).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+const pct = p => Math.max(0, Math.min(100, (Date.now() - p.s) / (p.e - p.s) * 100)).toFixed(1);
+function ago(ts) {
+  if (!ts) return ""; const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return "just now"; if (m < 60) return m + " min ago";
+  const h = Math.round(m / 60); if (h < 24) return h + (h === 1 ? " hour ago" : " hours ago");
+  const d = Math.round(h / 24); return d + (d === 1 ? " day ago" : " days ago");
+}
+function toast(msg, action) {
+  const t = $("#toast");
+  t.innerHTML = "<span>" + esc(msg) + "</span>" + (action ? "<button>" + esc(action.label) + "</button>" : "");
+  if (action) t.querySelector("button").onclick = () => { t.classList.remove("show"); action.fn(); };
+  t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 3800);
+}
+const isBroken = ch => { const t = S.broken[ch.url]; return !!t && Date.now() - t < RETRY_MS; };
+const visible = ch => !(S.hideBroken && isBroken(ch));
+const lastPlayed = () => { const m = {}; S.recent.forEach(r => { if (!m[r.k]) m[r.k] = r.t; }); return m; };
+
+/* ---------- lock screen ---------- */
+function boot() {
+  if (!PASSWORD || store.get("auth") === hash(PASSWORD)) { $("#lock").remove(); start(); return; }
+  const lock = $("#lock"), form = $("#lockForm"), pw = $("#pw");
+  lock.classList.remove("hidden");
+  if (!isTouch) pw.focus();
+  form.onsubmit = e => {
+    e.preventDefault();
+    if (pw.value === PASSWORD) { store.set("auth", hash(PASSWORD)); lock.remove(); start(); }
+    else {
+      $("#lockErr").textContent = "Wrong password. Try again.";
+      form.classList.remove("shake"); void form.offsetWidth; form.classList.add("shake");
+      pw.select();
+    }
+  };
+}
+
+/* ---------- playlist loading (iptv-org) ---------- */
+function parse(t, cn) {
+  const L = t.split(/\r?\n/), out = [];
+  const hm = (L[0] || "").match(/(?:x-tvg-url|url-tvg)="([^"]+)"/);
+  if (hm) hm[1].split(",").map(s => s.trim()).filter(Boolean).forEach(u => S.hdrEpg.add(u));
+  for (let i = 0; i < L.length; i++) {
+    if (!L[i].startsWith("#EXTINF")) continue;
+    let j = i + 1; while (j < L.length && (L[j].startsWith("#") || !L[j].trim())) j++;
+    const line = L[i], q = line.lastIndexOf('",');
+    const name = (q >= 0 ? line.slice(q + 2) : line.split(",").pop()).trim();
+    const a = n => (line.match(new RegExp("\\b" + n + '="([^"]*)"')) || [])[1] || "";
+    out.push({
+      name: name || "Unnamed", logo: a("tvg-logo"), id: a("tvg-id"),
+      cat: (a("group-title") || "Other").split(";")[0] || "Other",
+      url: (L[j] || "").trim(), countries: [cn]
+    });
+    i = j;
+  }
+  return out;
+}
+
+async function load() {
+  const parts = await Promise.all(Object.entries(COUNTRIES).map(async ([n, code]) => {
+    try {
+      const r = await fetch(BASE + code + ".m3u?d=" + encodeURIComponent(new Date().toDateString()));
+      if (!r.ok) throw new Error(r.status);
+      return parse(await r.text(), n);
+    } catch (e) { return []; }
+  }));
+  const byUrl = new Map(), list = [], seen = new Map();
+  parts.flat().forEach(c => {
+    if (!c.url) return;
+    const ex = byUrl.get(c.url);
+    if (ex) { if (!ex.countries.includes(c.countries[0])) ex.countries.push(c.countries[0]); return; }
+    byUrl.set(c.url, c); list.push(c);
+  });
+  list.forEach(c => { const k = (c.id || "") + "|" + c.name, n = seen.get(k) || 0; seen.set(k, n + 1); c.key = n ? k + "#" + n : k; });
+  if (!list.length && S.all.length) return; // keep the old list if a refresh fails
+  S.all = list; S.byKey = new Map(list.map(c => [c.key, c])); S.loadedAt = new Date();
+  pickHero(); buildBars(); render();
+  if (S.view === "mv") renderMV();
+  loadEPG();
+}
+
+/* ---------- filters, sorting ---------- */
+function buildBars() {
+  const cb = $("#countries"); cb.innerHTML = "";
+  ["All", ...Object.keys(COUNTRIES)].forEach(n => {
+    const b = document.createElement("button"); b.textContent = n; b.className = "chip" + (n === S.country ? " on" : "");
+    b.onclick = () => { S.country = n; S.cat = "All"; buildBars(); render(); }; cb.appendChild(b);
+  });
+  const list = S.all.filter(c => S.country === "All" || c.countries.includes(S.country));
+  const cats = ["All", ...[...new Set(list.map(c => c.cat))].sort(coll.compare)];
+  const kb = $("#cats"); kb.innerHTML = "";
+  cats.forEach(n => {
+    const b = document.createElement("button"); b.textContent = n; b.className = "chip" + (n === S.cat ? " on" : "");
+    b.onclick = () => { S.cat = n; buildBars(); render(); }; kb.appendChild(b);
+  });
+}
+function filtered() {
+  const q = S.q.toLowerCase();
+  return S.all.filter(c => (S.country === "All" || c.countries.includes(S.country)) && (S.cat === "All" || c.cat === S.cat)
+    && c.name.toLowerCase().includes(q) && visible(c));
+}
+function sortList(l) {
+  const a = [...l], nm = (x, y) => coll.compare(x.name, y.name);
+  switch (S.sort) {
+    case "az": return a.sort(nm);
+    case "za": return a.sort((x, y) => nm(y, x));
+    case "popular": return a.sort((x, y) => (S.plays[y.key] || 0) - (S.plays[x.key] || 0) || nm(x, y));
+    case "recent": { const t = lastPlayed(); return a.sort((x, y) => (t[y.key] || 0) - (t[x.key] || 0) || nm(x, y)); }
+    case "onnow": return a.sort((x, y) => (nowNext(y) && nowNext(y).now ? 1 : 0) - (nowNext(x) && nowNext(x).now ? 1 : 0) || nm(x, y));
+    default: return a;
+  }
+}
+function updateInfo() {
+  const hidden = S.all.filter(isBroken).length;
+  $("#info").textContent = S.loadedAt
+    ? (S.all.length ? S.all.length + " channels loaded · updated " + S.loadedAt.toLocaleString() : "Couldn't load channels. Check your connection and refresh.")
+      + (hidden && S.hideBroken ? " · " + hidden + " hidden (not working)" : "")
+    : "Loading channels...";
+}
+
+/* ---------- cards and rows ---------- */
+function thumbHTML(ch, extra) {
+  return '<div class="thumb' + (ch.logo ? " has-img" : "") + '" style="--h:' + hue(ch.name) + '"><span class="ini">' + esc(initials(ch.name)) + "</span>"
+    + (ch.logo ? '<img class="lg" loading="lazy" alt="" referrerpolicy="no-referrer" src="' + esc(ch.logo) + '">' : "") + (extra || "") + "</div>";
+}
+function cardHTML(ch, o) {
+  o = o || {};
+  const nn = nowNext(ch), now = nn && nn.now, fav = S.favs.has(ch.key);
+  const extra = (isBroken(ch) ? '<span class="badge">Not working</span>' : "")
+    + '<button class="star' + (fav ? " on" : "") + '" data-act="fav" aria-label="Favorite">' + (fav ? "★" : "☆") + "</button>"
+    + (o.rm ? '<button class="rm" data-act="unrecent" aria-label="Remove from Continue watching">✕</button>' : "")
+    + (now ? '<span class="prog" style="width:' + pct(now) + '%"></span>' : "");
+  const sub = o.sub || (now ? "Now: " + now.t : ch.cat + " · " + ch.countries.join(", "));
+  return '<div class="card playable" tabindex="0" data-k="' + esc(ch.key) + '">' + thumbHTML(ch, extra)
+    + '<div class="nm">' + esc(ch.name) + '</div><div class="sub">' + esc(sub) + "</div></div>";
+}
+function rowHTML(title, list, o) {
+  o = o || {};
+  return '<section class="row"><h3>' + esc(title) + " <small>" + list.length + "</small></h3>"
+    + '<div class="strip-wrap"><button class="scroll-btn l" data-act="scrl" data-d="-1" aria-label="Scroll left">‹</button><div class="strip">'
+    + list.map(c => cardHTML(c, o.card ? o.card(c) : null)).join("")
+    + '</div><button class="scroll-btn r" data-act="scrl" data-d="1" aria-label="Scroll right">›</button></div></section>';
+}
+
+/* ---------- home ---------- */
+function render() {
+  updateInfo();
+  if (S.view === "home") renderHome();
+  else if (S.view === "guide") renderGuide();
+}
+function renderHome() {
+  const R = $("#home"), searching = !!S.q, list = sortList(filtered()), g = {};
+  list.forEach(c => { const k = S.country === "All" ? c.countries[0] + " · " + c.cat : c.cat; (g[k] = g[k] || []).push(c); });
+  let h = searching ? "" : '<div id="heroSlot"></div><div id="recentSlot"></div><div id="favSlot"></div>';
+  h += Object.keys(g).sort(coll.compare).map(k => rowHTML(k, g[k])).join("");
+  if (!list.length && S.loadedAt) {
+    const hid = S.hideBroken ? S.all.filter(isBroken).length : 0;
+    h += '<p class="empty">No channels found.' + (hid ? " " + hid + " channels are hidden because they didn't work." : "") + "</p>";
+  }
+  R.innerHTML = h;
+  if (!searching) { renderHero(); renderRecent(); renderFavs(); }
+}
+function renderRecent() {
+  const el = $("#recentSlot"); if (!el) return;
+  const t = lastPlayed();
+  const list = S.recent.map(r => S.byKey.get(r.k)).filter(c => c && visible(c)).slice(0, 20);
+  el.innerHTML = list.length ? rowHTML("Continue watching", list, {card: c => {
+    const nn = nowNext(c); return {rm: 1, sub: (nn && nn.now ? nn.now.t + " · " : "Watched ") + ago(t[c.key])};
+  }}) : "";
+}
+function renderFavs() {
+  const el = $("#favSlot"); if (!el || !S.all.length) return;
+  const list = sortList(S.all.filter(c => S.favs.has(c.key) && visible(c)));
+  el.innerHTML = list.length ? rowHTML("★ My Favorites", list)
+    : '<section class="row"><h3>★ My Favorites</h3><p class="hint">Tap ☆ on any channel to keep it here.</p></section>';
+}
+function pickHero() {
+  const vis = S.all.filter(c => visible(c) && c.logo);
+  const favs = shuffle(vis.filter(c => S.favs.has(c.key))).slice(0, 3);
+  const top = vis.filter(c => S.plays[c.key] && !S.favs.has(c.key)).sort((a, b) => S.plays[b.key] - S.plays[a.key]).slice(0, 1);
+  const rest = shuffle(vis.filter(c => !favs.includes(c) && !top.includes(c)));
+  const pool = [...favs, ...top]; while (pool.length < 6 && rest.length) pool.push(rest.pop());
+  S.heroPool = pool.map(c => c.key); S.heroI = 0;
+}
+function renderHero() {
+  const el = $("#heroSlot"); if (!el) return;
+  const pool = S.heroPool.map(k => S.byKey.get(k)).filter(c => c && visible(c));
+  if (!pool.length) { el.innerHTML = ""; return; }
+  const i = S.heroI % pool.length, ch = pool[i], nn = nowNext(ch), fav = S.favs.has(ch.key);
+  const desc = nn && nn.now
+    ? "<b>On now:</b> " + esc(nn.now.t) + ' <span class="mut">until ' + fmtT(nn.now.e) + "</span>" + (nn.next ? '<br><span class="mut">Next at ' + fmtT(nn.next.s) + ": " + esc(nn.next.t) + "</span>" : "")
+    : "Live " + esc(ch.cat.toLowerCase()) + " channel from " + esc(ch.countries.join(", ")) + ". Tap to start watching instantly.";
+  el.innerHTML = '<section class="hero" data-k="' + esc(ch.key) + '" style="--h:' + hue(ch.name) + '"><div class="hero-bg"></div>'
+    + '<div class="hero-art' + (ch.logo ? " has-img" : "") + '"><span class="ini">' + esc(initials(ch.name)) + "</span>"
+    + (ch.logo ? '<img class="lg" alt="" referrerpolicy="no-referrer" src="' + esc(ch.logo) + '">' : "") + "</div>"
+    + '<div class="hero-in"><div class="eyebrow"><span class="live-dot"></span>Featured · Live</div><h2>' + esc(ch.name) + "</h2><p>" + desc + "</p>"
+    + '<div class="btns"><button class="btn light" data-act="play">▶ Watch now</button>'
+    + '<button class="btn" data-act="fav">' + (fav ? "★ Favorited" : "☆ Favorite") + "</button>"
+    + '<button class="btn" data-act="mvadd">⊞ Multiview</button></div></div>'
+    + (pool.length > 1 ? '<div class="dots">' + pool.map((_, j) => '<button data-act="hero" data-i="' + j + '" class="' + (j === i ? "on" : "") + '" aria-label="Featured channel ' + (j + 1) + '"></button>').join("") + "</div>" : "")
+    + "</section>";
+}
+
+/* ---------- favorites, recent, broken ---------- */
+function toggleFav(ch) {
+  const on = !S.favs.has(ch.key);
+  on ? S.favs.add(ch.key) : S.favs.delete(ch.key); saveFavs();
+  document.querySelectorAll('[data-k="' + CSS.escape(ch.key) + '"] [data-act="fav"]').forEach(b => {
+    b.classList.toggle("on", on);
+    b.textContent = b.classList.contains("star") ? (on ? "★" : "☆") : (on ? "★ Favorited" : "☆ Favorite");
+  });
+  const pf = $("#plFav"); if ($("#player").dataset.k === ch.key) pf.textContent = on ? "★ Favorited" : "☆ Favorite";
+  renderFavs();
+  toast(on ? "Added to My Favorites" : "Removed from My Favorites");
+}
+function addRecent(ch) {
+  S.recent = [{k: ch.key, t: Date.now()}, ...S.recent.filter(r => r.k !== ch.key)].slice(0, 30); saveRecent();
+  S.plays[ch.key] = (S.plays[ch.key] || 0) + 1; store.set("plays", S.plays);
+}
+function markBroken(ch) { S.broken[ch.url] = Date.now(); saveBroken(); S.dirty = true; }
+function markWorking(ch) { if (S.broken[ch.url]) { delete S.broken[ch.url]; saveBroken(); S.dirty = true; } }
+
+/* ---------- TV guide (XMLTV) ---------- */
+function progs(ch) {
+  if (!ch.id || !S.epg.size) return null;
+  return S.epg.get(ch.id) || S.epg.get(ch.id.split("@")[0]) || null;
+}
+function nowNext(ch) {
+  const p = progs(ch); if (!p) return null;
+  const t = Date.now(), i = p.findIndex(x => x.e > t); if (i < 0) return null;
+  return p[i].s <= t ? {now: p[i], next: p[i + 1] || null} : {now: null, next: p[i]};
+}
+function xmltvTime(s) {
+  const m = /^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)?\s*([+-])?(\d\d)?(\d\d)?/.exec(s || ""); if (!m) return 0;
+  let t = Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  if (m[7]) t -= (m[7] === "-" ? -1 : 1) * ((+m[8]) * 60 + (+(m[9] || 0))) * 60000;
+  return t;
+}
+function decode(s) {
+  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (m, e) => {
+    if (e[0] === "#") return String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : +e.slice(1));
+    return {amp: "&", lt: "<", gt: ">", quot: '"', apos: "'"}[e.toLowerCase()];
+  }).trim();
+}
+function parseXMLTV(xml, ids, from, to, map) {
+  const re = /<programme\b([^>]*)>([\s\S]*?)<\/programme>/g, at = (a, n) => { const m = new RegExp("\\b" + n + '="([^"]*)"').exec(a); return m ? m[1] : ""; };
+  const add = (k, p) => { let l = map.get(k); if (!l) map.set(k, l = []); l.push(p); };
+  let m, n = 0;
+  while ((m = re.exec(xml))) {
+    const c = decode(at(m[1], "channel")); if (!c) continue;
+    const base = c.split("@")[0]; if (!ids.has(c) && !ids.has(base)) continue;
+    const s = xmltvTime(at(m[1], "start")), e = xmltvTime(at(m[1], "stop")) || s + 3600e3;
+    if (!s || e < from || s > to) continue;
+    const tm = /<title\b[^>]*>([\s\S]*?)<\/title>/.exec(m[2]), dm = /<desc\b[^>]*>([\s\S]*?)<\/desc>/.exec(m[2]);
+    const p = {s, e, t: tm ? decode(tm[1]) : "Untitled", d: dm ? decode(dm[1]).slice(0, 280) : ""};
+    add(c, p); if (base !== c) add(base, p); n++;
+  }
+  return n;
+}
+async function loadEPG() {
+  const urls = [...new Set([...EPG_URLS, store.get("epgUrl", ""), ...S.hdrEpg].filter(Boolean))];
+  if (!urls.length) { S.epgState = "none"; updateEpgStatus(); if (S.view === "guide") renderGuide(); return; }
+  S.epgState = "loading"; updateEpgStatus(); if (S.view === "guide") renderGuide();
+  const ids = new Set(); S.all.forEach(c => { if (c.id) { ids.add(c.id); ids.add(c.id.split("@")[0]); } });
+  const now = Date.now(), map = new Map(), errs = [];
+  let total = 0;
+  await Promise.all(urls.map(async url => {
+    const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 90000);
+    try {
+      const r = await fetch(url, {signal: ctl.signal}); if (!r.ok) throw new Error("HTTP " + r.status);
+      let text;
+      if (/\.gz($|\?)/i.test(url) && "DecompressionStream" in window) {
+        const buf = await r.arrayBuffer(), b = new Uint8Array(buf);
+        text = b[0] === 0x1f && b[1] === 0x8b ? await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text() : new TextDecoder().decode(buf);
+      } else text = await r.text();
+      total += parseXMLTV(text, ids, now - 6 * 3600e3, now + 36 * 3600e3, map);
+    } catch (e) { errs.push((e.name === "AbortError" ? "timed out" : e.message || "blocked") + " — " + url); }
+    finally { clearTimeout(to); }
+  }));
+  map.forEach((l, k) => { l.sort((a, b) => a.s - b.s); map.set(k, l.filter((p, i) => !i || p.s !== l[i - 1].s)); });
+  S.epg = map;
+  S.epgState = map.size ? "ok" : "error";
+  S.epgMsg = map.size ? total + " programs for " + S.all.filter(progs).length + " channels" + (errs.length ? " (" + errs.length + " source failed)" : "")
+    : (errs.length ? errs.join("; ") : "the guide had no programs for these channels");
+  updateEpgStatus();
+  if (S.view === "guide") renderGuide(); else if (S.view === "home") { renderHero(); }
+}
+function updateEpgStatus() {
+  const el = $("#epgStatus"); if (!el) return;
+  el.textContent = {idle: "", none: "No guide source set yet.", loading: "Loading guide…", ok: "Guide loaded: " + S.epgMsg, error: "Couldn't load guide: " + S.epgMsg}[S.epgState];
+}
+function renderGuide() {
+  const G = $("#guide"), list = sortList(filtered()), has = S.epg.size > 0;
+  let notice = "";
+  if (S.epgState === "loading") notice = "Loading the TV guide…";
+  else if (!has && S.epgState === "error") notice = "Couldn't load the TV guide (" + esc(S.epgMsg) + "). Check the guide link in Settings ⚙.";
+  else if (!has) notice = "No TV guide source yet. The iptv-org playlists list channels but not their programs, so a guide file is needed. Add an XMLTV guide link (for example one made with the iptv-org EPG tool) in Settings ⚙ or in <code>EPG_URLS</code> at the top of index.html.";
+  const rows = has && !S.guideAll ? list.filter(c => progs(c)) : list, lim = S.guideLimit;
+  G.innerHTML = '<div class="g-head"><div><h2>TV Guide</h2><div class="mut sm">' + new Date().toLocaleDateString([], {weekday: "long", month: "short", day: "numeric"}) + " · " + fmtT(Date.now()) + "</div></div>"
+    + (has ? '<label class="switch sm mut"><input type="checkbox" id="gAll"' + (S.guideAll ? " checked" : "") + "><span></span>Show channels without guide info</label>" : "") + "</div>"
+    + (notice ? '<div class="notice">' + notice + "</div>" : "")
+    + (rows.length ? '<div class="g-list">' + rows.slice(0, lim).map(gRow).join("") + "</div>" : '<p class="empty">No channels to show.</p>')
+    + (rows.length > lim ? '<div class="more"><button class="btn" data-act="gmore">Show more (' + (rows.length - lim) + " more)</button></div>" : "");
+  const ga = $("#gAll"); if (ga) ga.onchange = e => { S.guideAll = e.target.checked; renderGuide(); };
+}
+function gRow(ch) {
+  const nn = nowNext(ch), now = nn && nn.now, nx = nn && nn.next, fav = S.favs.has(ch.key);
+  return '<div class="g-row playable" tabindex="0" data-k="' + esc(ch.key) + '"><div class="g-ch">' + thumbHTML(ch)
+    + '<div class="g-nm"><div class="nm">' + esc(ch.name) + '</div><div class="mut sm">' + esc(ch.cat) + " · " + esc(ch.countries.join(", ")) + "</div></div></div>"
+    + '<div class="g-slot now"><div class="lbl">Now</div>' + (now ? '<div class="t">' + esc(now.t) + '</div><div class="tm">' + fmtT(now.s) + " – " + fmtT(now.e) + '</div><div class="bar"><i style="width:' + pct(now) + '%"></i></div>' : '<div class="t mut">' + (S.epg.size ? "No info" : "—") + "</div>") + "</div>"
+    + '<div class="g-slot next"><div class="lbl">Next</div>' + (nx ? '<div class="t">' + esc(nx.t) + '</div><div class="tm">' + fmtT(nx.s) + "</div>" : '<div class="t mut">—</div>') + "</div>"
+    + '<button class="star static' + (fav ? " on" : "") + '" data-act="fav" aria-label="Favorite">' + (fav ? "★" : "☆") + "</button></div>";
+}
+
+/* ---------- playback ---------- */
+function attachStream(v, ch, onState, opts) {
+  opts = opts || {};
+  let h = null, done = false, recovered = false;
+  const fail = () => { if (done) return; done = true; onState("fail"); };
+  const tryPlay = () => v.play().catch(() => { if (opts.muteFallback && !v.muted) { v.muted = true; v.play().catch(() => {}); onState("muted"); } });
+  v.onplaying = () => onState("ok");
+  v.onerror = fail;
+  if (v.canPlayType("application/vnd.apple.mpegurl")) { v.src = ch.url; tryPlay(); }
+  else if (window.Hls && Hls.isSupported()) {
+    h = new Hls({enableWorker: true});
+    h.loadSource(ch.url); h.attachMedia(v);
+    h.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+    h.on(Hls.Events.ERROR, (e, d) => {
+      if (!d.fatal) return;
+      if (d.type === Hls.ErrorTypes.MEDIA_ERROR && !recovered) { recovered = true; h.recoverMediaError(); }
+      else fail();
+    });
+  } else setTimeout(fail, 0);
+  const slow = setTimeout(() => { if (!done && v.readyState < 3) onState("slow"); }, 20000);
+  return {destroy() {
+    done = true; clearTimeout(slow); v.onplaying = v.onerror = null;
+    if (h) { h.destroy(); h = null; }
+    v.pause(); v.removeAttribute("src"); v.load();
+  }};
+}
+let cur = null;
+function failMsg(ch) {
+  const mixed = location.protocol === "https:" && /^http:/i.test(ch.url);
+  return "This channel won't play here (" + (mixed ? "it uses an insecure http:// link, which browsers block on secure sites" : "offline or blocked") + "). "
+    + (S.hideBroken ? "It will be hidden from your lists. " : "")
+    + '<a href="' + esc(ch.url) + '" target="_blank" rel="noopener">Open stream directly</a> · <a href="#" data-act="retry">Try again</a>';
+}
+function play(ch) {
+  const P = $("#player"), v = $("#v"), m = $("#msg"), fav = S.favs.has(ch.key);
+  P.dataset.k = ch.key; P.classList.remove("hidden"); document.body.classList.add("noscroll");
+  $("#plHead").innerHTML = thumbHTML(ch) + '<div class="pl-tt"><h3>' + esc(ch.name) + '</h3><div class="mut sm">' + esc(ch.cat) + " · " + esc(ch.countries.join(", ")) + "</div></div>";
+  $("#plFav").textContent = fav ? "★ Favorited" : "☆ Favorite";
+  $("#plEpg").innerHTML = playerEPG(ch);
+  m.textContent = "Loading " + ch.name + "...";
+  if (cur) cur.destroy();
+  let counted = false;
+  cur = attachStream(v, ch, st => {
+    if (st === "ok") { m.textContent = ""; if (!counted) { counted = true; markWorking(ch); addRecent(ch); } }
+    else if (st === "fail") { markBroken(ch); m.innerHTML = failMsg(ch); }
+    else if (st === "slow") m.innerHTML = 'Still trying to load… this channel may be offline. <a href="' + esc(ch.url) + '" target="_blank" rel="noopener">Open stream directly</a>';
+  });
+}
+function playerEPG(ch) {
+  const nn = nowNext(ch); if (!nn) return "";
+  return (nn.now ? '<div class="g-slot now"><div class="lbl">Now · ' + fmtT(nn.now.s) + "–" + fmtT(nn.now.e) + '</div><div class="t">' + esc(nn.now.t) + "</div>"
+      + (nn.now.d ? '<div class="mut sm">' + esc(nn.now.d) + "</div>" : "") + '<div class="bar"><i style="width:' + pct(nn.now) + '%"></i></div></div>' : "")
+    + (nn.next ? '<div class="g-slot next"><div class="lbl">Next · ' + fmtT(nn.next.s) + '</div><div class="t">' + esc(nn.next.t) + "</div></div>" : "");
+}
+function closePlayer() {
+  const P = $("#player"); if (P.classList.contains("hidden")) return;
+  if (cur) { cur.destroy(); cur = null; }
+  P.classList.add("hidden"); delete P.dataset.k; closeModalCleanup();
+  afterChange();
+}
+function afterChange() {
+  if (S.dirty) { S.dirty = false; render(); }
+  else if (S.view === "home") renderRecent();
+}
+function closeModalCleanup() { if (!document.querySelector(".modal:not(.hidden)")) document.body.classList.remove("noscroll"); }
+
+/* ---------- multiview ---------- */
+const mvSlots = new Map();
+const addTile = document.createElement("button");
+addTile.className = "slot empty"; addTile.innerHTML = "<b>+</b>Add a channel"; addTile.onclick = () => openPicker();
+function addToMV(ch, quiet) {
+  if (S.mv.includes(ch.key)) { if (!quiet) toast("Already in Multiview", {label: "Open", fn: () => setView("mv")}); return false; }
+  if (S.mv.length >= 4) { toast("Multiview holds 4 channels. Remove one first.", {label: "Open", fn: () => setView("mv")}); return false; }
+  S.mv.push(ch.key); if (!S.mvAudio) S.mvAudio = ch.key; saveMV();
+  if (!quiet) toast("Added to Multiview (" + S.mv.length + "/4)", {label: "Open", fn: () => setView("mv")});
+  return true;
+}
+function renderMV() {
+  if (S.view !== "mv") return;
+  const grid = $("#mvGrid");
+  if (S.all.length) S.mv = S.mv.filter(k => S.byKey.has(k)).slice(0, 4);
+  if (!S.mv.includes(S.mvAudio)) S.mvAudio = S.mv[0] || null;
+  saveMV();
+  for (const [k, s] of mvSlots) if (!S.mv.includes(k)) { s.ctl.destroy(); s.el.remove(); mvSlots.delete(k); }
+  const tiles = [];
+  S.mv.forEach(k => {
+    const ch = S.byKey.get(k); if (!ch) return;
+    let s = mvSlots.get(k); if (!s) { s = makeSlot(ch); mvSlots.set(k, s); }
+    tiles.push(s.el);
+  });
+  if (S.mv.length < 4) tiles.push(addTile); else addTile.remove();
+  grid.className = "mv-grid n" + tiles.length;
+  tiles.forEach(t => grid.appendChild(t));
+  updateAudio();
+  $("#mvClear").classList.toggle("hidden", !S.mv.length);
+}
+function makeSlot(ch) {
+  const el = document.createElement("div");
+  el.className = "slot"; el.dataset.k = ch.key;
+  el.innerHTML = '<video playsinline muted autoplay></video><div class="slot-bar"><span class="nm">' + esc(ch.name) + "</span>"
+    + '<button data-act="mvaudio" aria-label="Sound">🔇</button><button data-act="mvfs" aria-label="Full screen">⛶</button><button data-act="mvrm" aria-label="Remove">✕</button></div>'
+    + '<div class="slot-msg">Loading…</div>';
+  const v = el.querySelector("video"), msg = el.querySelector(".slot-msg");
+  v.muted = ch.key !== S.mvAudio;
+  const ctl = attachStream(v, ch, st => {
+    if (st === "ok") { msg.textContent = ""; markWorking(ch); }
+    else if (st === "fail") { msg.innerHTML = "Not working right now. Tap ✕ to swap it."; markBroken(ch); }
+    else if (st === "slow") msg.textContent = "Still loading…";
+    else if (st === "muted") { if (S.mvAudio === ch.key) { msg.textContent = "Tap 🔇 for sound"; } updateAudio(true); }
+  }, {muteFallback: true});
+  return {el, ctl, v};
+}
+function updateAudio(keepMuted) {
+  mvSlots.forEach((s, k) => {
+    const on = k === S.mvAudio;
+    if (!keepMuted) s.v.muted = !on;
+    s.el.classList.toggle("audio", on && !s.v.muted);
+    s.el.querySelector('[data-act="mvaudio"]').textContent = on && !s.v.muted ? "🔊" : "🔇";
+    const m = s.el.querySelector(".slot-msg"); if (!s.v.muted && m.textContent === "Tap 🔇 for sound") m.textContent = "";
+  });
+}
+function setAudio(k) {
+  const s = mvSlots.get(k); if (!s) return;
+  S.mvAudio = (S.mvAudio === k && !s.v.muted) ? null : k; saveMV(); updateAudio();
+  if (S.mvAudio) { s.v.play().catch(() => {}); const m = s.el.querySelector(".slot-msg"); if (m.textContent === "Tap 🔇 for sound") m.textContent = ""; }
+}
+function stopMV() { mvSlots.forEach(s => { s.ctl.destroy(); s.el.remove(); }); mvSlots.clear(); }
+function openPicker() {
+  const P = $("#picker"); P.classList.remove("hidden"); document.body.classList.add("noscroll");
+  $("#pkQ").value = ""; renderPicker(); if (!isTouch) setTimeout(() => $("#pkQ").focus(), 30);
+}
+function renderPicker() {
+  const q = $("#pkQ").value.trim().toLowerCase(), seen = new Set(), out = [];
+  const push = c => { if (c && !seen.has(c.key) && visible(c) && !S.mv.includes(c.key) && c.name.toLowerCase().includes(q)) { seen.add(c.key); out.push(c); } };
+  S.all.filter(c => S.favs.has(c.key)).forEach(push);
+  S.recent.forEach(r => push(S.byKey.get(r.k)));
+  for (const c of S.all) { if (out.length >= 200) break; push(c); }
+  $("#pkList").innerHTML = out.length ? out.map(c => '<button class="pk-item" data-act="pick" data-k="' + esc(c.key) + '">' + thumbHTML(c)
+    + "<span><b>" + esc(c.name) + "</b><small>" + (S.favs.has(c.key) ? "★ " : "") + esc(c.cat) + " · " + esc(c.countries.join(", ")) + "</small></span></button>").join("")
+    : '<p class="empty">No channels found.</p>';
+}
+
+/* ---------- views & modals ---------- */
+function setView(v) {
+  closePlayer();
+  document.querySelectorAll(".modal").forEach(m => m.classList.add("hidden")); closeModalCleanup();
+  if (S.view === "mv" && v !== "mv") stopMV();
+  S.view = v;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  $("#home").classList.toggle("hidden", v !== "home");
+  $("#guide").classList.toggle("hidden", v !== "guide");
+  $("#mvView").classList.toggle("hidden", v !== "mv");
+  $("#filters").classList.toggle("hidden", v === "mv");
+  try { history.replaceState(null, "", v === "home" ? location.pathname + location.search : "#" + v); } catch (e) {}
+  window.scrollTo(0, 0);
+  if (v === "mv") renderMV(); else render();
+}
+function openSettings() {
+  $("#settings").classList.remove("hidden"); document.body.classList.add("noscroll");
+  $("#epgUrl").value = store.get("epgUrl", "");
+  const n = Object.keys(S.broken).filter(u => Date.now() - S.broken[u] < RETRY_MS).length;
+  $("#brokenInfo").textContent = n ? n + " channel" + (n === 1 ? " is" : "s are") + " marked as not working. They're retried automatically after " + BROKEN_RETRY_DAYS + " days." : "No channels are marked as not working.";
+  updateEpgStatus();
+}
+
+function start() {
+  $("#app").classList.remove("hidden");
+  $("#sort").value = S.sort;
+  $("#hideBroken").checked = S.hideBroken;
+  // forget old "not working" marks
+  Object.keys(S.broken).forEach(u => { if (Date.now() - S.broken[u] > RETRY_MS) delete S.broken[u]; }); saveBroken();
+
+  let qt; $("#q").oninput = e => { clearTimeout(qt); qt = setTimeout(() => { S.q = e.target.value.trim(); if (S.view === "mv") setView("home"); else render(); }, 150); };
+  $("#sort").onchange = e => { S.sort = e.target.value; store.set("sort", S.sort); render(); };
+  $("#hideBroken").onchange = e => { S.hideBroken = e.target.checked; store.set("hideBroken", S.hideBroken); render(); };
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => setView(b.dataset.view));
+  $("#close").onclick = closePlayer;
+  $("#settingsBtn").onclick = openSettings;
+  $("#mvClear").onclick = () => { S.mv = []; saveMV(); renderMV(); };
+  $("#pkQ").oninput = renderPicker;
+  $("#epgSave").onclick = () => { store.set("epgUrl", $("#epgUrl").value.trim() || null); loadEPG(); };
+  $("#brokenReset").onclick = () => { S.broken = {}; saveBroken(); openSettings(); render(); toast("All channels will be shown again"); };
+  $("#recentClear").onclick = () => { S.recent = []; S.plays = {}; saveRecent(); store.set("plays", null); render(); toast("Watch history cleared"); };
+  $("#lockBtn").onclick = () => { store.set("auth", null); location.reload(); };
+
+  document.addEventListener("click", e => {
+    const modal = e.target.classList && e.target.classList.contains("modal") ? e.target : null;
+    if (modal || e.target.closest("[data-close]")) {
+      const m = modal || e.target.closest(".modal");
+      if (m.id === "player") closePlayer(); else { m.classList.add("hidden"); closeModalCleanup(); }
+      return;
+    }
+    const a = e.target.closest("[data-act]"), holder = e.target.closest("[data-k]");
+    const ch = holder && S.byKey.get(holder.dataset.k);
+    if (a) {
+      e.preventDefault(); e.stopPropagation();
+      switch (a.dataset.act) {
+        case "fav": if (ch) toggleFav(ch); break;
+        case "play": if (ch) play(ch); break;
+        case "retry": if (ch) play(ch); break;
+        case "mvadd": if (ch) addToMV(ch); break;
+        case "hide": if (ch) { markBroken(ch); closePlayer(); toast(S.hideBroken ? "Hidden. You can bring it back in Settings." : "Marked as not working"); } break;
+        case "unrecent": if (ch) { S.recent = S.recent.filter(r => r.k !== ch.key); saveRecent(); renderRecent(); } break;
+        case "scrl": { const s = a.parentNode.querySelector(".strip"); s.scrollBy({left: a.dataset.d * s.clientWidth * .85, behavior: "smooth"}); break; }
+        case "hero": S.heroI = +a.dataset.i; renderHero(); break;
+        case "gmore": S.guideLimit += 300; renderGuide(); break;
+        case "pick": if (ch && addToMV(ch, true)) { $("#picker").classList.add("hidden"); closeModalCleanup(); renderMV(); } break;
+        case "mvaudio": if (holder) setAudio(holder.dataset.k); break;
+        case "mvrm": if (holder) { S.mv = S.mv.filter(k => k !== holder.dataset.k); saveMV(); renderMV(); } break;
+        case "mvfs": {
+          const s = holder && mvSlots.get(holder.dataset.k); if (!s) break;
+          if (S.mvAudio !== holder.dataset.k || s.v.muted) setAudio(holder.dataset.k);
+          if (s.v.requestFullscreen) s.v.requestFullscreen().catch(() => {}); else if (s.v.webkitEnterFullscreen) s.v.webkitEnterFullscreen();
+          break;
+        }
+      }
+      return;
+    }
+    if (holder && holder.classList.contains("slot") && !holder.classList.contains("empty")) { setAudio(holder.dataset.k); return; }
+    if (ch && holder.classList.contains("playable")) play(ch);
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      const open = [...document.querySelectorAll(".modal:not(.hidden)")].pop();
+      if (open) { if (open.id === "player") closePlayer(); else { open.classList.add("hidden"); closeModalCleanup(); } }
+    } else if (e.key === "Enter" && e.target.classList && e.target.classList.contains("playable")) {
+      const ch = S.byKey.get(e.target.dataset.k); if (ch) play(ch);
+    }
+  });
+  // hide broken logos and show the channel's initials instead
+  document.addEventListener("error", e => {
+    const t = e.target; if (t.tagName === "IMG" && t.classList.contains("lg")) { const p = t.parentNode; t.remove(); if (p) p.classList.remove("has-img"); }
+  }, true);
+
+  // rotate the featured channel, keep guide times fresh
+  setInterval(() => {
+    if (S.view === "home" && !S.q && !document.hidden && $("#player").classList.contains("hidden")) { S.heroI++; renderHero(); }
+  }, 12000);
+  setInterval(() => {
+    if (document.hidden) return;
+    if (S.view === "guide") renderGuide();
+    const k = $("#player").dataset.k; if (k && S.byKey.get(k)) $("#plEpg").innerHTML = playerEPG(S.byKey.get(k));
+  }, 60000);
+
+  const h = location.hash.slice(1);
+  if (h === "guide" || h === "mv") setView(h); else render();
+  load(); setInterval(load, 24 * 60 * 60 * 1000);
+  setInterval(loadEPG, 6 * 60 * 60 * 1000);
+}
+
+boot();
+</script>
+</body>
+</html>
