@@ -1,0 +1,74 @@
+# Builds the TV guide for Test TV once a day with the iptv-org/epg grabber
+# and saves it as epg/guide.xml.gz, which index.html loads (see EPG_URLS).
+name: Update TV guide
+
+on:
+  schedule:
+    - cron: "23 4 * * *" # every day at 04:23 UTC
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-tv-guide
+  cancel-in-progress: false
+
+jobs:
+  guide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out Test TV
+        uses: actions/checkout@v4
+
+      - name: Check out iptv-org/epg
+        uses: actions/checkout@v4
+        with:
+          repository: iptv-org/epg
+          ref: master
+          path: .epg-src
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install the grabber
+        working-directory: .epg-src
+        run: npm ci --no-audit --no-fund
+
+      - name: Pick guide sources for Test TV's channels
+        run: node scripts/epg-channels.mjs .epg-src .epg-src/testtv.channels.xml
+
+      - name: Download the guide
+        working-directory: .epg-src
+        run: >
+          npm run grab --
+          --channels=testtv.channels.xml
+          --output=out/guide.xml
+          --gzip
+          --days=2
+          --maxConnections=10
+          --timeout=20000
+
+      - name: Save the guide to the repo
+        run: |
+          gz=.epg-src/out/guide.xml.gz
+          if ! gzip -dc "$gz" | grep -q "<programme"; then
+            echo "::error::The new guide has no programs, so the old one is kept."
+            exit 1
+          fi
+          mkdir -p epg
+          cp "$gz" epg/guide.xml.gz
+          ls -lh epg/guide.xml.gz
+          git config user.name "github-actions[bot]"
+          git config user.email "41898341+github-actions[bot]@users.noreply.github.com"
+          git add epg/guide.xml.gz
+          if git diff --cached --quiet; then echo "Guide unchanged"; exit 0; fi
+          git commit -m "Update TV guide"
+          for i in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

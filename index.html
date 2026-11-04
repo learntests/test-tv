@@ -9,11 +9,13 @@
 // Note: this only keeps casual visitors out. Anyone who views the page source can see it.
 const PASSWORD = "Tvforyou777";
 
-// Optional TV guide (EPG) sources in XMLTV format (.xml or .xml.gz).
+// TV guide (EPG) sources in XMLTV format (.xml or .xml.gz).
+// epg/guide.xml.gz is built every day by the "Update TV guide" GitHub Action
+// (.github/workflows/epg.yml) using the iptv-org/epg project.
 // Guide links the iptv-org playlists advertise are also used automatically,
-// and you can add one in Settings (⚙) inside the app.
+// and you can add another one in Settings (⚙) inside the app.
 const EPG_URLS = [
-  // "https://example.com/guide.xml",
+  "epg/guide.xml.gz",
 ];
 
 // Countries to load from iptv-org (name shown in the app : iptv-org country code).
@@ -361,7 +363,7 @@ header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:18px
   <div class="sh-head"><h3>Settings</h3><button class="icon-btn" data-close aria-label="Close">✕</button></div>
   <div class="sh-body">
    <h4>TV guide</h4>
-   <p class="mut sm">Paste a link to an XMLTV guide file (.xml or .xml.gz). The iptv-org playlists don't carry program info themselves; you can make a guide file with the iptv-org EPG tool and host it anywhere that allows cross-site requests (GitHub Pages works).</p>
+   <p class="mut sm">Paste a link to an XMLTV guide file (.xml or .xml.gz). The daily guide built by this repo's “Update TV guide” action is used automatically; add a link here only if you want an extra source.</p>
    <input id="epgUrl" class="field" type="url" placeholder="https://.../guide.xml" autocomplete="off" autocapitalize="off" spellcheck="false">
    <button class="btn pri" id="epgSave">Save and load guide</button>
    <p id="epgStatus" class="mut sm" style="margin-top:10px"></p>
@@ -679,7 +681,7 @@ async function loadEPG() {
   await Promise.all(urls.map(async url => {
     const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 90000);
     try {
-      const r = await fetch(url, {signal: ctl.signal}); if (!r.ok) throw new Error("HTTP " + r.status);
+      const r = await fetch(url, {signal: ctl.signal, cache: "no-cache"}); if (!r.ok) throw new Error("HTTP " + r.status);
       let text;
       if (/\.gz($|\?)/i.test(url) && "DecompressionStream" in window) {
         const buf = await r.arrayBuffer(), b = new Uint8Array(buf);
@@ -705,7 +707,7 @@ function renderGuide() {
   const G = $("#guide"), list = sortList(filtered()), has = S.epg.size > 0;
   let notice = "";
   if (S.epgState === "loading") notice = "Loading the TV guide…";
-  else if (!has && S.epgState === "error") notice = "Couldn't load the TV guide (" + esc(S.epgMsg) + "). Check the guide link in Settings ⚙.";
+  else if (!has && S.epgState === "error") notice = "Couldn't load the TV guide (" + esc(S.epgMsg) + "). If you just set up the guide, run the “Update TV guide” action in the repo's Actions tab on GitHub and wait for it to finish.";
   else if (!has) notice = "No TV guide source yet. The iptv-org playlists list channels but not their programs, so a guide file is needed. Add an XMLTV guide link (for example one made with the iptv-org EPG tool) in Settings ⚙ or in <code>EPG_URLS</code> at the top of index.html.";
   const rows = has && !S.guideAll ? list.filter(c => progs(c)) : list, lim = S.guideLimit;
   G.innerHTML = '<div class="g-head"><div><h2>TV Guide</h2><div class="mut sm">' + new Date().toLocaleDateString([], {weekday: "long", month: "short", day: "numeric"}) + " · " + fmtT(Date.now()) + "</div></div>"
