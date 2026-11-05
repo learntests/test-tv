@@ -1,0 +1,42 @@
+# Rebuilds playlist.m3u once a day from iptv-org (USA, Canada, Iran and every
+# 24/7 channel) with scripts/build-playlist.mjs, and commits it if it changed.
+name: Update playlist
+
+on:
+  schedule:
+    - cron: "47 5 * * *" # every day at 05:47 UTC
+  workflow_dispatch: # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-playlist
+  cancel-in-progress: false
+
+jobs:
+  playlist:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build playlist.m3u
+        run: node scripts/build-playlist.mjs playlist.m3u
+
+      - name: Commit the playlist
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898341+github-actions[bot]@users.noreply.github.com"
+          git add playlist.m3u
+          if git diff --cached --quiet; then echo "Playlist unchanged"; exit 0; fi
+          git commit -m "Update playlist"
+          for i in 1 2 3; do
+            git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
