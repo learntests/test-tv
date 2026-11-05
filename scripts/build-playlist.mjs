@@ -1,12 +1,20 @@
-// Builds playlist.m3u: the iptv-org channels for the USA, Canada and Iran,
-// plus every 24/7 channel in iptv-org, without duplicates and grouped into
-// categories. Run by .github/workflows/playlist.yml.
+// Builds playlist.m3u from iptv-org, without duplicates and grouped into
+// categories. Run by .github/workflows/playlist.yml. Sources:
+//   - the USA, Canada and Iran country lists
+//   - the Persian (Farsi) language list, every channel (goes in Iran groups)
+//   - the region lists that cover these countries (North America, Americas,
+//     Middle East, MENA, West Asia, Central Asia, Asia, EMEA, Worldwide),
+//     keeping only channels whose tvg-id says they are from the US, CA or IR
+//   - every channel in iptv-org with 24/7 in its name
+// The state/province/city lists are not fetched: they only repeat channels
+// from the country lists. iptv-org has no video-on-demand lists.
 //
 //   node scripts/build-playlist.mjs [output.m3u]
 //
 // Groups look like "USA | News", "Canada | Sports", "Iran | Movies" and
 // "24/7 | Series". A 24/7 channel (name contains 24/7, 24-7 or 24x7) goes in a
-// 24/7 group even when it comes from one of the three countries.
+// 24/7 group even when it comes from one of the three countries, and a
+// Persian-language channel goes in an Iran group wherever it is from.
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,6 +26,10 @@ const COUNTRIES = [
   ["Canada", "countries/ca.m3u"],
   ["Iran", "countries/ir.m3u"],
 ];
+const PERSIAN = "languages/fas.m3u";
+const REGIONS = ["noram", "amer", "mideast", "mena", "was", "cas", "asia", "emea", "ww"]
+  .map(r => `regions/${r}.m3u`);
+const LABEL_BY_CC = { us: "USA", ca: "Canada", ir: "Iran" };
 const ALL = "index.m3u";
 const MIRRORS = [
   "https://iptv-org.github.io/iptv/",
@@ -78,6 +90,7 @@ function categoryOf(group) {
   return !first || first === "Undefined" ? "Other" : first;
 }
 
+const countryOf = id => (id.match(/\.([a-z]{2})(?:@|$)/i) || [])[1]?.toLowerCase() || "";
 const normUrl = u => u.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "").toLowerCase();
 const normName = n => n.toLowerCase()
   .replace(/\[[^\]]*\]|\([^)]*\)/g, "") // "(720p)", "[Geo-blocked]"
@@ -88,6 +101,10 @@ const seenChannel = new Set();
 const groups = new Map(); // group name -> entries
 let skipped = 0;
 
+const persianKeys = new Set();
+const keysOf = e => [normUrl(e.url), e.id ? "id:" + e.id.toLowerCase() : null].filter(Boolean);
+const isPersian = e => keysOf(e).some(k => persianKeys.has(k));
+
 function add(entry, prefix) {
   if (ADULT.test(entry.category) || ADULT.test(entry.info)) { skipped++; return; }
   const urlKey = normUrl(entry.url);
@@ -95,20 +112,41 @@ function add(entry, prefix) {
   if (seenUrl.has(urlKey) || seenChannel.has(chanKey)) { skipped++; return; }
   seenUrl.add(urlKey);
   seenChannel.add(chanKey);
-  const group = `${IS_247.test(entry.name) ? "24/7" : prefix} | ${entry.category}`;
+  const label = IS_247.test(entry.name) ? "24/7" : isPersian(entry) ? "Iran" : prefix;
+  const group = `${label} | ${entry.category}`;
   if (!groups.has(group)) groups.set(group, []);
   groups.get(group).push(entry);
 }
 
+const persian = parse(await download(PERSIAN));
+for (const e of persian) keysOf(e).forEach(k => persianKeys.add(k));
+
+const count = () => [...groups.values()].reduce((n, g) => n + g.length, 0);
 for (const [label, file] of COUNTRIES) {
   const entries = parse(await download(file));
-  console.log(`${label}: ${entries.length} streams`);
+  const before = count();
   for (const e of entries) add(e, label);
+  console.log(`${label}: ${entries.length} streams, ${count() - before} added`);
+}
+{
+  const before = count();
+  for (const e of persian) add(e, "Iran");
+  console.log(`Persian language: ${persian.length} streams, ${count() - before} added`);
+}
+for (const file of REGIONS) {
+  const entries = parse(await download(file))
+    .filter(e => LABEL_BY_CC[countryOf(e.id)]);
+  const before = count();
+  for (const e of entries) add(e, LABEL_BY_CC[countryOf(e.id)]);
+  console.log(`${file}: ${entries.length} US/CA/IR streams, ${count() - before} added`);
 }
 const all = parse(await download(ALL));
 const all247 = all.filter(e => IS_247.test(e.name));
-console.log(`24/7 (all countries): ${all247.length} streams`);
-for (const e of all247) add(e, "24/7");
+{
+  const before = count();
+  for (const e of all247) add(e, "24/7");
+  console.log(`24/7 (all countries): ${all247.length} streams, ${count() - before} added`);
+}
 
 // Sort: USA, Canada, Iran, then 24/7; categories A–Z with "Other" last;
 // channels A–Z inside each group.
